@@ -1,0 +1,13 @@
+# متطلبات بناء التطبيق
+# لتثبيت جميع المتطلبات: pip install -r requirements_build.txt
+
+# أساسي - لبناء الملف التنفيذي
+pyinstaller>=5.0
+
+# اختياري - للضغط وتقليل الحجم
+pyinstaller[encryption]
+
+# اختياري - لأداء أفضل (بديل لـ PyInstaller)
+# cx-Freeze>=6.0
+# nuitka>=1.0
+

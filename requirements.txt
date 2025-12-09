@@ -1,0 +1,15 @@
+# Student Management System - Requirements
+# Python 3.7+ Required
+
+# No external dependencies needed!
+# The application uses only built-in Python libraries:
+# - tkinter (GUI - comes with Python)
+# - sqlite3 (Database - comes with Python)
+# - datetime (Date/Time - comes with Python)
+
+# To run the application:
+# python student_manager.py
+
+# Note: Make sure Python is installed with tkinter support
+# On Linux: sudo apt-get install python3-tk
+# On Windows/Mac: tkinter is included by default
