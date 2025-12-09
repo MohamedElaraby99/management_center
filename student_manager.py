@@ -399,7 +399,20 @@ class StudentManagementApp:
             
             app_dir = os.path.dirname(app_path)
             shortcut_path = os.path.join(desktop, "StudentManager.lnk")
-            icon_path = os.path.join(app_dir, "app_icon.ico")
+            
+            # البحث عن الأيقونة في عدة أماكن
+            icon_path = None
+            possible_icon_paths = [
+                os.path.join(app_dir, "app_icon.ico"),
+                os.path.join(os.getcwd(), "app_icon.ico"),
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_icon.ico"),
+                os.path.join(app_dir, "..", "app_icon.ico"),  # parent directory
+            ]
+            
+            for path in possible_icon_paths:
+                if os.path.exists(path):
+                    icon_path = os.path.abspath(path)
+                    break
             
             # استخدام PowerShell لإنشاء اختصار .lnk حقيقي
             # تضمين علامات الاقتباس المزدوجة للمسارات
@@ -412,8 +425,11 @@ $Shortcut.WorkingDirectory = "{app_dir}"
 $Shortcut.Description = "Student Manager App"
 '''
             # إضافة الأيقونة إذا كانت موجودة
-            if os.path.exists(icon_path):
+            if icon_path:
                 ps_script += f'$Shortcut.IconLocation = "{icon_path}"\n'
+            elif getattr(sys, 'frozen', False):
+                # إذا كان EXE، استخدم الـ EXE نفسه كأيقونة
+                ps_script += f'$Shortcut.IconLocation = "{target_path}"\n'
             
             ps_script += '$Shortcut.Save()'
             
