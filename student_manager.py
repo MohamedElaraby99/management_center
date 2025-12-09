@@ -370,8 +370,20 @@ class StudentManagementApp:
             import os
             import subprocess
             
-            # الحصول على مسار سطح المكتب
-            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+            # الحصول على مسار سطح المكتب بطريقة موثوقة على Windows
+            # استخدام متغير البيئة USERPROFILE للحصول على مسار المستخدم الصحيح
+            user_profile = os.environ.get('USERPROFILE', os.path.expanduser('~'))
+            desktop = os.path.join(user_profile, "Desktop")
+            
+            # التحقق من وجود مجلد سطح المكتب
+            if not os.path.exists(desktop):
+                # محاولة استخدام OneDrive Desktop إذا كان موجوداً
+                onedrive_desktop = os.path.join(user_profile, "OneDrive", "Desktop")
+                if os.path.exists(onedrive_desktop):
+                    desktop = onedrive_desktop
+                else:
+                    # إنشاء المجلد إذا لم يكن موجوداً
+                    os.makedirs(desktop, exist_ok=True)
             
             # تحديد مسار البرنامج
             if getattr(sys, 'frozen', False):
@@ -382,7 +394,7 @@ class StudentManagementApp:
             else:
                 # إذا كان يعمل كسكريبت Python
                 app_path = os.path.abspath(__file__)
-                target_path = "pythonw"
+                target_path = sys.executable  # استخدام مسار Python الفعلي
                 arguments = f'"{app_path}"'
             
             app_dir = os.path.dirname(app_path)
@@ -390,6 +402,7 @@ class StudentManagementApp:
             icon_path = os.path.join(app_dir, "app_icon.ico")
             
             # استخدام PowerShell لإنشاء اختصار .lnk حقيقي
+            # تضمين علامات الاقتباس المزدوجة للمسارات
             ps_script = f'''
 $WshShell = New-Object -comObject WScript.Shell
 $Shortcut = $WshShell.CreateShortcut("{shortcut_path}")
@@ -3351,6 +3364,12 @@ $Shortcut.Description = "Student Manager App"
         btn_frame = tk.Frame(container)
         btn_frame.pack(pady=(15, 0))
         
+        # زر تم السداد - يحذف الإشعار بدلاً من تعليمه كمقروء فقط
+        tk.Button(btn_frame, text="💰 تم السداد", bg=self.colors['success'], 
+                 fg='white', font=('Arial', 10, 'bold'), padx=20, pady=8,
+                 border=0, cursor='hand2',
+                 command=lambda: self.mark_notification_as_paid(notif_id, details_window)).pack(side=tk.RIGHT, padx=5)
+        
         tk.Button(btn_frame, text="حذف الإشعار", bg=self.colors['danger'], 
                  fg='white', font=('Arial', 10, 'bold'), padx=20, pady=8,
                  border=0, cursor='hand2',
@@ -3370,6 +3389,13 @@ $Shortcut.Description = "Student Manager App"
         window.destroy()
         self.load_notifications()
         messagebox.showinfo("تم الحذف", "تم حذف الإشعار بنجاح")
+    
+    def mark_notification_as_paid(self, notif_id, window):
+        """تعليم الإشعار كمدفوع - يحذف الإشعار بالكامل بدلاً من تعليمه كمقروء فقط"""
+        self.db.execute_query("DELETE FROM notifications WHERE id=?", (notif_id,))
+        window.destroy()
+        self.load_notifications()
+        messagebox.showinfo("تم السداد", "تم تسجيل السداد وحذف الإشعار بنجاح")
     
     def show_notification_settings(self):
         """عرض نافذة إعدادات الإشعارات"""
