@@ -951,6 +951,15 @@ $Shortcut.Description = "Student Manager App"
                 fg=self.colors['text_secondary'],
                 font=('Segoe UI', 15)).pack(anchor=tk.E, pady=(2, 0))
         
+        # زر التحديث
+        refresh_btn = tk.Button(header, text=f"{self.icons['refresh']} تحديث",
+                               bg=self.colors['info'], fg='white',
+                               font=('Segoe UI', 12, 'bold'),
+                               bd=0, padx=20, pady=8, cursor='hand2',
+                               activebackground=self.colors['primary'],
+                               command=self.load_students)
+        refresh_btn.pack(side=tk.LEFT, pady=15)
+        
         # Container رئيسي
         main_container = tk.Frame(page, bg=self.colors['bg'])
         main_container.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
@@ -1206,6 +1215,15 @@ $Shortcut.Description = "Student Manager App"
                 fg=self.colors['text_secondary'],
                 font=('Segoe UI', 15)).pack(anchor=tk.E, pady=(2, 0))
         
+        # زر التحديث
+        refresh_btn = tk.Button(header, text=f"{self.icons['refresh']} تحديث",
+                               bg=self.colors['info'], fg='white',
+                               font=('Segoe UI', 12, 'bold'),
+                               bd=0, padx=20, pady=8, cursor='hand2',
+                               activebackground=self.colors['primary'],
+                               command=self.load_groups)
+        refresh_btn.pack(side=tk.LEFT, pady=15)
+        
         # Content from old tab
         content = tk.Frame(page, bg=self.colors['bg'])
         content.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
@@ -1234,6 +1252,15 @@ $Shortcut.Description = "Student Manager App"
                 bg=self.colors['bg'],
                 fg=self.colors['text_secondary'],
                 font=('Segoe UI', 15)).pack(anchor=tk.E, pady=(2, 0))
+        
+        # زر التحديث
+        refresh_btn = tk.Button(header, text=f"{self.icons['refresh']} تحديث",
+                               bg=self.colors['info'], fg='white',
+                               font=('Segoe UI', 12, 'bold'),
+                               bd=0, padx=20, pady=8, cursor='hand2',
+                               activebackground=self.colors['primary'],
+                               command=self.load_enrollments)
+        refresh_btn.pack(side=tk.LEFT, pady=15)
         
         # Content from old tab - will be converted
         content = tk.Frame(page, bg=self.colors['bg'])
@@ -1264,6 +1291,15 @@ $Shortcut.Description = "Student Manager App"
                 fg=self.colors['text_secondary'],
                 font=('Segoe UI', 15)).pack(anchor=tk.E, pady=(2, 0))
         
+        # زر التحديث
+        refresh_btn = tk.Button(header, text=f"{self.icons['refresh']} تحديث",
+                               bg=self.colors['info'], fg='white',
+                               font=('Segoe UI', 12, 'bold'),
+                               bd=0, padx=20, pady=8, cursor='hand2',
+                               activebackground=self.colors['primary'],
+                               command=self.load_payments)
+        refresh_btn.pack(side=tk.LEFT, pady=15)
+        
         content = tk.Frame(page, bg=self.colors['bg'])
         content.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
         
@@ -1291,6 +1327,15 @@ $Shortcut.Description = "Student Manager App"
                 fg=self.colors['text_secondary'],
                 font=('Segoe UI', 15)).pack(anchor=tk.E, pady=(2, 0))
         
+        # زر التحديث
+        refresh_btn = tk.Button(header, text=f"{self.icons['refresh']} تحديث",
+                               bg=self.colors['info'], fg='white',
+                               font=('Segoe UI', 12, 'bold'),
+                               bd=0, padx=20, pady=8, cursor='hand2',
+                               activebackground=self.colors['primary'],
+                               command=self.load_attendance)
+        refresh_btn.pack(side=tk.LEFT, pady=15)
+        
         content = tk.Frame(page, bg=self.colors['bg'])
         content.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
         
@@ -1317,6 +1362,15 @@ $Shortcut.Description = "Student Manager App"
                 bg=self.colors['bg'],
                 fg=self.colors['text_secondary'],
                 font=('Segoe UI', 15)).pack(anchor=tk.E, pady=(2, 0))
+        
+        # زر التحديث
+        refresh_btn = tk.Button(header, text=f"{self.icons['refresh']} تحديث",
+                               bg=self.colors['info'], fg='white',
+                               font=('Segoe UI', 12, 'bold'),
+                               bd=0, padx=20, pady=8, cursor='hand2',
+                               activebackground=self.colors['primary'],
+                               command=self.refresh_notifications)
+        refresh_btn.pack(side=tk.LEFT, pady=15)
         
         content = tk.Frame(page, bg=self.colors['bg'])
         content.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
@@ -2768,7 +2822,12 @@ $Shortcut.Description = "Student Manager App"
                 DELETE FROM notifications 
                 WHERE student_id=? AND group_id=? AND type='payment'
             """, (student_id, group_id))
-            messagebox.showinfo("نجح", "تم تسجيل الدفعة بنجاح")
+            
+            # تحديث عرض الإشعارات إذا كان التبويب موجوداً
+            if hasattr(self, 'notifications_tree'):
+                self.load_notifications()
+            
+            messagebox.showinfo("نجح", "تم تسجيل الدفعة وحذف الإشعار بنجاح")
             self.payment_amount.delete(0, tk.END)
             self.payment_notes.delete(0, tk.END)
             self.load_payments()
@@ -3213,6 +3272,9 @@ $Shortcut.Description = "Student Manager App"
         )
         
         if show_on_startup and show_on_startup[0] == '1':
+            # تنظيف الإشعارات القديمة للطلاب الذين دفعوا بالفعل
+            self.cleanup_stale_payment_notifications()
+            
             # توليد إشعارات الدفعات
             self.generate_payment_notifications()
             
@@ -3230,6 +3292,32 @@ $Shortcut.Description = "Student Manager App"
                 if response:
                     # الانتقال لتبويب الإشعارات
                     self.show_notifications_page()
+    
+    def cleanup_stale_payment_notifications(self):
+        """حذف إشعارات الدفع القديمة للطلاب الذين دفعوا بالفعل"""
+        # جلب فترة التذكير
+        reminder_days = self.db.fetch_one(
+            "SELECT setting_value FROM notification_settings WHERE setting_key='payment_reminder_days'"
+        )
+        days = int(reminder_days[0]) if reminder_days else 7
+        
+        # حذف إشعارات الدفع للطلاب الذين دفعوا خلال الفترة المحددة
+        cutoff_date = (date.today() - timedelta(days=days)).strftime("%Y-%m-%d")
+        
+        # حذف الإشعارات القديمة التي لم تعد صالحة (الطالب دفع بالفعل)
+        self.db.execute_query("""
+            DELETE FROM notifications 
+            WHERE type='payment' AND id IN (
+                SELECT n.id FROM notifications n
+                WHERE n.type='payment'
+                AND EXISTS (
+                    SELECT 1 FROM payments p
+                    WHERE p.student_id = n.student_id 
+                    AND p.group_id = n.group_id
+                    AND p.payment_date >= ?
+                )
+            )
+        """, (cutoff_date,))
     
     def generate_payment_notifications(self):
         """توليد إشعارات الدفعات المتأخرة"""
