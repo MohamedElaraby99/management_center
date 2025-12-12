@@ -43,6 +43,18 @@ class StudentManagementDB:
             )
         """)
         
+        # جدول المعلمين
+        self.cursor.execute("""
+            CREATE TABLE IF NOT EXISTS teachers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                phone TEXT,
+                email TEXT,
+                specialization TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
         # جدول المجموعات
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS groups (
@@ -671,6 +683,7 @@ $Shortcut.Description = "Student Manager App"
         """إنشاء جميع الصفحات"""
         self.pages['students'] = self.create_students_page()
         self.pages['groups'] = self.create_groups_page()
+        self.pages['teachers'] = self.create_teachers_page()
         self.pages['enrollment'] = self.create_enrollment_page()
         self.pages['payments'] = self.create_payments_page()
         self.pages['attendance'] = self.create_attendance_page()
@@ -682,6 +695,9 @@ $Shortcut.Description = "Student Manager App"
     
     def show_groups_page(self):
         self.show_page('groups')
+    
+    def show_teachers_page(self):
+        self.show_page('teachers')
     
     def show_enrollment_page(self):
         self.show_page('enrollment')
@@ -864,6 +880,7 @@ $Shortcut.Description = "Student Manager App"
         nav_items = [
             ('students', 'الطلبة', self.icons['students'], self.show_students_page),
             ('groups', 'المجموعات', self.icons['groups'], self.show_groups_page),
+            ('teachers', 'المعلمين', self.icons['student'], self.show_teachers_page),
             ('enrollment', 'التسجيل', self.icons['enrollment'], self.show_enrollment_page),
             ('payments', 'الدفعات', self.icons['payments'], self.show_payments_page),
             ('attendance', 'الحضور', self.icons['attendance'], self.show_attendance_page),
@@ -1150,11 +1167,12 @@ $Shortcut.Description = "Student Manager App"
         tree_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
         
         # جدول الطلبة مع تنسيق حديث - RTL (من اليمين لليسار)
-        columns = ("تاريخ التسجيل", "العنوان", "البريد", "الهاتف", "الاسم", "ID")
+        columns = ("المجموعات", "تاريخ التسجيل", "العنوان", "البريد", "الهاتف", "الاسم", "ID")
         self.students_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", 
                                          height=15, selectmode='browse')
         
         # تنسيق الأعمدة - RTL
+        self.students_tree.column("المجموعات", width=80, anchor='center')
         self.students_tree.column("تاريخ التسجيل", width=120, anchor='center')
         self.students_tree.column("العنوان", width=150, anchor='e')
         self.students_tree.column("البريد", width=200, anchor='e')
@@ -1183,7 +1201,7 @@ $Shortcut.Description = "Student Manager App"
         tree_frame.grid_columnconfigure(0, weight=1)
         
         # حدث النقر
-        self.students_tree.bind("<ButtonRelease-1>", self.select_student)
+        self.students_tree.bind("<ButtonRelease-1>", self.on_student_tree_click)
         self.students_tree.bind("<Double-1>", self.view_student_details)
         
         # تفعيل البحث المباشر بعد إنشاء الـ tree
@@ -1230,6 +1248,224 @@ $Shortcut.Description = "Student Manager App"
         
         self.create_groups_tab_for_page(content)
         
+        return page
+    
+    def create_teachers_page(self):
+        """صفحة إدارة المعلمين - Modern Desktop UI"""
+        page = tk.Frame(self.content_area, bg=self.colors['bg'])
+        
+        # Page Header
+        header = tk.Frame(page, bg=self.colors['bg'], height=80)
+        header.pack(fill=tk.X, padx=30, pady=(20, 0))
+        header.pack_propagate(False)
+        
+        title_frame = tk.Frame(header, bg=self.colors['bg'])
+        title_frame.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        tk.Label(title_frame, text=f"{self.icons['student']} إدارة المعلمين",
+                bg=self.colors['bg'],
+                fg=self.colors['text'],
+                font=('Segoe UI', 28, 'bold')).pack(anchor=tk.E)
+        tk.Label(title_frame, text="إضافة وإدارة بيانات المعلمين",
+                bg=self.colors['bg'],
+                fg=self.colors['text_secondary'],
+                font=('Segoe UI', 15)).pack(anchor=tk.E, pady=(2, 0))
+        
+        # زر التحديث
+        refresh_btn = tk.Button(header, text=f"{self.icons['refresh']} تحديث",
+                               bg=self.colors['info'], fg='white',
+                               font=('Segoe UI', 12, 'bold'),
+                               bd=0, padx=20, pady=8, cursor='hand2',
+                               activebackground=self.colors['primary'],
+                               command=self.load_teachers)
+        refresh_btn.pack(side=tk.LEFT, pady=15)
+        
+        # Main container
+        main_container = tk.Frame(page, bg=self.colors['bg'])
+        main_container.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
+        
+        # Form section
+        form_outer = tk.Frame(main_container, bg=self.colors['border'], bd=0)
+        form_outer.pack(fill=tk.X, pady=(0, 15))
+        
+        form_card = tk.Frame(form_outer, bg=self.colors['card'], bd=0)
+        form_card.pack(fill=tk.X, padx=1, pady=1)
+        
+        form_inner = ttk.Frame(form_card)
+        form_inner.pack(padx=25, pady=25, fill=tk.X)
+        
+        # Form title
+        form_title_frame = tk.Frame(form_inner, bg=self.colors['card'])
+        form_title_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        tk.Label(form_title_frame, text=f"{self.icons['student']} معلومات المعلم", 
+                bg=self.colors['card'],
+                fg=self.colors['text'],
+                font=('Segoe UI', 19, 'bold')).pack(side=tk.RIGHT)
+        
+        tk.Frame(form_inner, bg=self.colors['border'], height=2).pack(fill=tk.X, pady=(10, 20))
+        
+        # Input fields
+        fields_frame = tk.Frame(form_inner, bg=self.colors['card'])
+        fields_frame.pack(fill=tk.X)
+        
+        # Row 1
+        row1 = tk.Frame(fields_frame, bg=self.colors['card'])
+        row1.pack(fill=tk.X, pady=8)
+        
+        phone_container, self.teacher_phone = self.create_modern_input(
+            row1, "رقم الهاتف", self.icons['phone'], 25)
+        phone_container.pack(side=tk.LEFT, padx=(15, 0))
+        
+        name_container, self.teacher_name = self.create_modern_input(
+            row1, "اسم المعلم", self.icons['student'], 35)
+        name_container.pack(side=tk.RIGHT)
+        
+        # Row 2
+        row2 = tk.Frame(fields_frame, bg=self.colors['card'])
+        row2.pack(fill=tk.X, pady=8)
+        
+        spec_container, self.teacher_specialization = self.create_modern_input(
+            row2, "التخصص", self.icons['group'], 25)
+        spec_container.pack(side=tk.LEFT, padx=(15, 0))
+        
+        email_container, self.teacher_email = self.create_modern_input(
+            row2, "البريد الإلكتروني", self.icons['email'], 35)
+        email_container.pack(side=tk.RIGHT)
+        
+        # Action buttons
+        btn_frame = tk.Frame(form_inner, bg=self.colors['card'])
+        btn_frame.pack(pady=(25, 0))
+        
+        self.create_modern_button(btn_frame, "مسح الحقول", self.clear_teacher_fields, 
+                                  'secondary', self.icons['clear']).pack(side=tk.LEFT, padx=5)
+        self.create_modern_button(btn_frame, "حذف", self.delete_teacher, 
+                                  'danger', self.icons['delete']).pack(side=tk.LEFT, padx=5)
+        self.create_modern_button(btn_frame, "تحديث", self.update_teacher, 
+                                  'warning', self.icons['edit']).pack(side=tk.LEFT, padx=5)
+        self.create_modern_button(btn_frame, "إضافة معلم", self.add_teacher, 
+                                  'success', self.icons['add']).pack(side=tk.LEFT, padx=5)
+        
+        # Display section
+        display_outer = tk.Frame(main_container, bg=self.colors['border'], bd=0)
+        display_outer.pack(fill=tk.BOTH, expand=True)
+        
+        display_card = tk.Frame(display_outer, bg=self.colors['card'], bd=0)
+        display_card.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+        
+        display_inner = ttk.Frame(display_card)
+        display_inner.pack(padx=25, pady=25, fill=tk.BOTH, expand=True)
+        
+        tk.Label(display_inner, text=f"{self.icons['student']} قائمة المعلمين", 
+                bg=self.colors['card'],
+                fg=self.colors['text'],
+                font=('Segoe UI', 19, 'bold')).pack(anchor=tk.E, pady=(0, 5))
+        
+        tk.Frame(display_inner, bg=self.colors['border'], height=2).pack(fill=tk.X, pady=(5, 15))
+        
+        # Table
+        tree_outer = tk.Frame(display_inner, bg='#D1D5DB', bd=0)
+        tree_outer.pack(fill=tk.BOTH, expand=True)
+        
+        tree_frame = tk.Frame(tree_outer, bg='#FFFFFF')
+        tree_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        
+        columns = ("المجموعات", "عدد الطلاب", "التخصص", "البريد", "الهاتف", "الاسم", "ID")
+        self.teachers_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", 
+                                         height=15, selectmode='browse')
+        
+        # Column formatting
+        self.teachers_tree.column("المجموعات", width=80, anchor='center')
+        self.teachers_tree.column("عدد الطلاب", width=100, anchor='center')
+        self.teachers_tree.column("التخصص", width=150, anchor='e')
+        self.teachers_tree.column("البريد", width=200, anchor='e')
+        self.teachers_tree.column("الهاتف", width=120, anchor='center')
+        self.teachers_tree.column("الاسم", width=200, anchor='e')
+        self.teachers_tree.column("ID", width=50, anchor='center')
+        
+        for col in columns:
+            self.teachers_tree.heading(col, text=col)
+        
+        # Row coloring
+        self.teachers_tree.tag_configure('oddrow', background='#F3F4F6', foreground='#111827')
+        self.teachers_tree.tag_configure('evenrow', background='#FFFFFF', foreground='#111827')
+        
+        # Scrollbars
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.teachers_tree.yview)
+        hsb = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.teachers_tree.xview)
+        self.teachers_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        
+        self.teachers_tree.grid(row=0, column=0, sticky='nsew')
+        vsb.grid(row=0, column=1, sticky='ns')
+        hsb.grid(row=1, column=0, sticky='ew')
+        
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
+        
+        # Click events
+        self.teachers_tree.bind("<ButtonRelease-1>", self.on_teacher_tree_click)
+        
+        # Load data
+        self.load_teachers()
+        
+        # ===================
+        # قسم عرض مجموعات المعلم المحدد
+        # ===================
+        teacher_groups_outer = tk.Frame(main_container, bg=self.colors['border'], bd=0)
+        teacher_groups_outer.pack(fill=tk.BOTH, expand=True, pady=(15, 0))
+        
+        teacher_groups_card = tk.Frame(teacher_groups_outer, bg=self.colors['card'], bd=0)
+        teacher_groups_card.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+        
+        teacher_groups_inner = ttk.Frame(teacher_groups_card)
+        teacher_groups_inner.pack(padx=25, pady=25, fill=tk.BOTH, expand=True)
+        
+        self.selected_teacher_label = tk.Label(teacher_groups_inner, 
+                                               text=f"{self.icons['groups']} مجموعات المعلم", 
+                                               bg=self.colors['card'],
+                                               fg=self.colors['text'],
+                                               font=('Segoe UI', 19, 'bold'))
+        self.selected_teacher_label.pack(anchor=tk.E, pady=(0, 5))
+        
+        tk.Frame(teacher_groups_inner, bg=self.colors['border'], height=2).pack(fill=tk.X, pady=(5, 15))
+        
+        # Table for teacher's groups
+        tg_tree_outer = tk.Frame(teacher_groups_inner, bg='#D1D5DB', bd=0)
+        tg_tree_outer.pack(fill=tk.BOTH, expand=True)
+        
+        tg_tree_frame = tk.Frame(tg_tree_outer, bg='#FFFFFF')
+        tg_tree_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        
+        tg_columns = ("عدد الطلاب", "الرسوم", "الجدول", "المادة", "المجموعة", "ID")
+        self.teacher_groups_tree = ttk.Treeview(tg_tree_frame, columns=tg_columns, show="headings", height=8)
+        
+        # Column formatting
+        self.teacher_groups_tree.column("ID", width=60, anchor='center')
+        self.teacher_groups_tree.column("المجموعة", width=200, anchor='e')
+        self.teacher_groups_tree.column("المادة", width=150, anchor='e')
+        self.teacher_groups_tree.column("الجدول", width=200, anchor='e')
+        self.teacher_groups_tree.column("الرسوم", width=100, anchor='center')
+        self.teacher_groups_tree.column("عدد الطلاب", width=100, anchor='center')
+        
+        for col in tg_columns:
+            self.teacher_groups_tree.heading(col, text=col)
+        
+        # Row coloring
+        self.teacher_groups_tree.tag_configure('oddrow', background='#F3F4F6', foreground='#111827')
+        self.teacher_groups_tree.tag_configure('evenrow', background='#FFFFFF', foreground='#111827')
+        
+        # Scrollbars
+        tg_vsb = ttk.Scrollbar(tg_tree_frame, orient="vertical", command=self.teacher_groups_tree.yview)
+        tg_hsb = ttk.Scrollbar(tg_tree_frame, orient="horizontal", command=self.teacher_groups_tree.xview)
+        self.teacher_groups_tree.configure(yscrollcommand=tg_vsb.set, xscrollcommand=tg_hsb.set)
+        
+        self.teacher_groups_tree.grid(row=0, column=0, sticky='nsew')
+        tg_vsb.grid(row=0, column=1, sticky='ns')
+        tg_hsb.grid(row=1, column=0, sticky='ew')
+        
+        tg_tree_frame.grid_rowconfigure(0, weight=1)
+        tg_tree_frame.grid_columnconfigure(0, weight=1)
+    
         return page
     
     def create_enrollment_page(self):
@@ -1506,10 +1742,18 @@ $Shortcut.Description = "Student Manager App"
             row2, "الجدول الزمني", self.icons['calendar'], 25)
         schedule_container.pack(side=tk.LEFT, padx=(15, 0))
         
-        # المعلم (يمين)
-        teacher_container, self.group_teacher = self.create_modern_input(
-            row2, "اسم المعلم", self.icons['student'], 35)
-        teacher_container.pack(side=tk.RIGHT)
+        # المعلم (يمين) - Dropdown to select from existing teachers
+        teacher_label = tk.Frame(row2, bg=self.colors['card'])
+        teacher_label.pack(side=tk.RIGHT)
+        tk.Label(teacher_label, text=f"{self.icons['student']} اسم المعلم:",
+                bg=self.colors['card'], fg=self.colors['text'],
+                font=('Segoe UI', 12, 'bold')).pack()
+        
+        teacher_combo_frame = tk.Frame(row2, bg=self.colors['border'])
+        teacher_combo_frame.pack(side=tk.RIGHT, padx=(0, 10))
+        self.group_teacher = ttk.Combobox(teacher_combo_frame, width=33, font=('Segoe UI', 14))
+        self.enable_search(self.group_teacher)
+        self.group_teacher.pack(padx=1, pady=1, ipady=6)
         
         # الصف الثالث - الرسوم
         row3 = tk.Frame(fields_frame, bg=self.colors['card'])
@@ -1532,6 +1776,9 @@ $Shortcut.Description = "Student Manager App"
                                   'warning', self.icons['edit']).pack(side=tk.LEFT, padx=5)
         self.create_modern_button(btn_frame, "إضافة مجموعة", self.add_group, 
                                   'success', self.icons['add']).pack(side=tk.LEFT, padx=5)
+        
+        # Load teachers into dropdown
+        self.refresh_group_teacher_combo()
         
         # ===================
         # قسم عرض المجموعات - Modern Table
@@ -1561,11 +1808,13 @@ $Shortcut.Description = "Student Manager App"
         tree_frame = tk.Frame(tree_outer, bg='#FFFFFF')
         tree_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
         
+        
         # جدول المجموعات - RTL Modern
-        columns = ("الرسوم", "الجدول", "المعلم", "المادة", "الاسم", "ID")
+        columns = ("عرض", "الرسوم", "الجدول", "المعلم", "المادة", "الاسم", "ID")
         self.groups_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=12)
         
         # تنسيق الأعمدة - RTL
+        self.groups_tree.column("عرض", width=60, anchor='center')
         self.groups_tree.column("ID", width=60, anchor='center')
         self.groups_tree.column("الاسم", width=200, anchor='e')
         self.groups_tree.column("المادة", width=150, anchor='e')
@@ -1593,7 +1842,7 @@ $Shortcut.Description = "Student Manager App"
         tree_frame.grid_columnconfigure(0, weight=1)
         
         # حدث النقر
-        self.groups_tree.bind("<ButtonRelease-1>", self.select_group)
+        self.groups_tree.bind("<ButtonRelease-1>", self.on_group_tree_click)
         
         # تحميل البيانات
         self.load_groups()
@@ -2161,7 +2410,7 @@ $Shortcut.Description = "Student Manager App"
         
         self.attendance_tree.column("ID", width=60, anchor='center')
         self.attendance_tree.column("الطالب", width=180, anchor='e')
-        self.attendance_tree.column("المجموعة", width=180, anchor='e')
+        self.attendance_tree.column("المجموعة", width=250, anchor='e')
         self.attendance_tree.column("الحالة", width=100, anchor='center')
         self.attendance_tree.column("التاريخ", width=120, anchor='center')
         self.attendance_tree.column("ملاحظات", width=200, anchor='e')
@@ -2347,8 +2596,8 @@ $Shortcut.Description = "Student Manager App"
             tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
             # تنسيق التاريخ
             created_at = student[5][:10] if len(student) > 5 and student[5] else ""
-            # الترتيب: تاريخ التسجيل، العنوان، البريد، الهاتف، الاسم، ID
-            values = [created_at, student[4], student[3], student[2], student[1], student[0]]
+            # الترتيب: المجموعات (أيقونة)، تاريخ التسجيل، العنوان، البريد، الهاتف، الاسم، ID
+            values = [self.icons['groups'], created_at, student[4], student[3], student[2], student[1], student[0]]
             self.students_tree.insert("", tk.END, values=values, tags=(tag,))
         
         # تحديث عداد الطلبة
@@ -2521,16 +2770,162 @@ $Shortcut.Description = "Student Manager App"
         selected = self.students_tree.selection()
         if selected:
             values = self.students_tree.item(selected[0])["values"]
-            # الترتيب الجديد: تاريخ التسجيل، العنوان، البريد، الهاتف، الاسم، ID
-            # values[5]=ID, values[4]=الاسم, values[3]=الهاتف, values[2]=البريد, values[1]=العنوان
+            # الترتيب الجديد: المجموعات، تاريخ التسجيل، العنوان، البريد، الهاتف، الاسم، ID
+            # values[6]=ID, values[5]=الاسم, values[4]=الهاتف, values[3]=البريد, values[2]=العنوان
             self.student_name.delete(0, tk.END)
-            self.student_name.insert(0, values[4])
+            self.student_name.insert(0, values[5])
             self.student_phone.delete(0, tk.END)
-            self.student_phone.insert(0, values[3])
+            self.student_phone.insert(0, values[4])
             self.student_email.delete(0, tk.END)
-            self.student_email.insert(0, values[2])
+            self.student_email.insert(0, values[3])
             self.student_address.delete(0, tk.END)
-            self.student_address.insert(0, values[1])
+            self.student_address.insert(0, values[2])
+    
+    def on_student_tree_click(self, event):
+        """معالجة النقر على جدول الطلبة"""
+        # تحديد العنصر والعمود المنقور
+        region = self.students_tree.identify("region", event.x, event.y)
+        if region == "cell":
+            column = self.students_tree.identify_column(event.x)
+            selected = self.students_tree.selection()
+            
+            if selected and column == "#1":  # عمود المجموعات (العمود الأول)
+                values = self.students_tree.item(selected[0])["values"]
+                student_id = values[6]  # ID في العمود الأخير
+                student_name = values[5]  # الاسم
+                self.show_student_groups(student_id, student_name)
+            else:
+                # استدعاء الدالة الأصلية للتحديد
+                self.select_student(event)
+        else:
+            self.select_student(event)
+    
+    def show_student_groups(self, student_id, student_name):
+        """عرض مجموعات الطالب مع إحصائيات الحضور"""
+        # إنشاء نافذة منبثقة
+        dialog = tk.Toplevel(self.root)
+        dialog.title(f"مجموعات الطالب: {student_name}")
+        dialog.geometry("900x600")
+        dialog.configure(bg=self.colors['bg'])
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Header
+        header = tk.Frame(dialog, bg=self.colors['primary'], height=80)
+        header.pack(fill=tk.X)
+        header.pack_propagate(False)
+        
+        tk.Label(header, text=f"{self.icons['students']} مجموعات الطالب: {student_name}",
+                bg=self.colors['primary'], fg='white',
+                font=('Segoe UI', 20, 'bold')).pack(pady=20)
+        
+        # Main content
+        content = tk.Frame(dialog, bg=self.colors['bg'])
+        content.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
+        
+        # جلب مجموعات الطالب
+        query = """
+            SELECT g.id, g.name, g.subject, g.teacher, g.schedule, g.fee
+            FROM groups g
+            INNER JOIN student_groups sg ON g.id = sg.group_id
+            WHERE sg.student_id = ?
+            ORDER BY g.name
+        """
+        groups = self.db.fetch_all(query, (student_id,))
+        
+        if not groups:
+            tk.Label(content, text="لا توجد مجموعات مسجلة لهذا الطالب",
+                    bg=self.colors['bg'], fg=self.colors['text_secondary'],
+                    font=('Segoe UI', 16)).pack(pady=50)
+        else:
+            # جدول المجموعات مع الحضور
+            tree_outer = tk.Frame(content, bg=self.colors['border'])
+            tree_outer.pack(fill=tk.BOTH, expand=True)
+            
+            tree_frame = tk.Frame(tree_outer, bg='#FFFFFF')
+            tree_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+            
+            columns = ("النسبة %", "الغياب", "الحضور", "الرسوم", "الجدول", "المعلم", "المادة", "المجموعة")
+            tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=15)
+            
+            # تنسيق الأعمدة
+            tree.column("المجموعة", width=220, anchor='e')
+            tree.column("المادة", width=120, anchor='e')
+            tree.column("المعلم", width=150, anchor='e')
+            tree.column("الجدول", width=150, anchor='e')
+            tree.column("الرسوم", width=80, anchor='center')
+            tree.column("الحضور", width=80, anchor='center')
+            tree.column("الغياب", width=80, anchor='center')
+            tree.column("النسبة %", width=80, anchor='center')
+            
+            for col in columns:
+                tree.heading(col, text=col)
+            
+            # إضافة البيانات
+            for idx, group in enumerate(groups):
+                group_id = group[0]
+                
+                # حساب إحصائيات الحضور
+                attendance_stats = self.get_student_attendance_in_group(student_id, group_id)
+                
+                tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
+                values = [
+                    f"{attendance_stats['percentage']:.1f}%",
+                    attendance_stats['absent'],
+                    attendance_stats['present'],
+                    group[5],  # الرسوم
+                    group[4],  # الجدول
+                    group[3],  # المعلم
+                    group[2],  # المادة
+                    group[1]   # اسم المجموعة
+                ]
+                tree.insert("", tk.END, values=values, tags=(tag,))
+            
+            # Scrollbars
+            vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+            hsb = ttk.Scrollbar(tree_frame, orient="horizontal", command=tree.xview)
+            tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+            
+            tree.grid(row=0, column=0, sticky='nsew')
+            vsb.grid(row=0, column=1, sticky='ns')
+            hsb.grid(row=1, column=0, sticky='ew')
+            
+            tree_frame.grid_rowconfigure(0, weight=1)
+            tree_frame.grid_columnconfigure(0, weight=1)
+        
+        # زر الإغلاق
+        btn_frame = tk.Frame(dialog, bg=self.colors['bg'])
+        btn_frame.pack(pady=20)
+        
+        self.create_modern_button(btn_frame, "إغلاق", dialog.destroy,
+                                  'secondary', self.icons['close']).pack()
+    
+    def get_student_attendance_in_group(self, student_id, group_id):
+        """حساب إحصائيات حضور الطالب في مجموعة معينة"""
+        # عدد أيام الحضور
+        present_query = """
+            SELECT COUNT(*) FROM attendance
+            WHERE student_id = ? AND group_id = ? AND status = 'حاضر'
+        """
+        present_count = self.db.fetch_one(present_query, (student_id, group_id))[0]
+        
+        # عدد أيام الغياب
+        absent_query = """
+            SELECT COUNT(*) FROM attendance
+            WHERE student_id = ? AND group_id = ? AND status IN ('غائب', 'غياب بعذر')
+        """
+        absent_count = self.db.fetch_one(absent_query, (student_id, group_id))[0]
+        
+        # حساب النسبة المئوية
+        total = present_count + absent_count
+        percentage = (present_count / total * 100) if total > 0 else 0
+        
+        return {
+            'present': present_count,
+            'absent': absent_count,
+            'total': total,
+            'percentage': percentage
+        }
     
     def clear_student_fields(self):
         """مسح حقول الطالب"""
@@ -2634,8 +3029,8 @@ $Shortcut.Description = "Student Manager App"
         # إضافة المجموعات مع تلوين الصفوف - RTL
         for idx, group in enumerate(groups):
             tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
-            # الترتيب RTL: الرسوم، الجدول، المعلم، المادة، الاسم، ID
-            values = [group[5], group[4], group[3], group[2], group[1], group[0]]
+            # الترتيب RTL: عرض (أيقونة)، الرسوم، الجدول، المعلم، المادة، الاسم، ID
+            values = [self.icons['info'], group[5], group[4], group[3], group[2], group[1], group[0]]
             self.groups_tree.insert("", tk.END, values=values, tags=(tag,))
     
     def select_group(self, event):
@@ -2643,18 +3038,141 @@ $Shortcut.Description = "Student Manager App"
         selected = self.groups_tree.selection()
         if selected:
             values = self.groups_tree.item(selected[0])["values"]
-            # الترتيب الجديد: الرسوم، الجدول، المعلم، المادة، الاسم، ID
-            # values[5]=ID, values[4]=الاسم, values[3]=المادة, values[2]=المعلم, values[1]=الجدول, values[0]=الرسوم
+            # الترتيب الجديد: عرض، الرسوم، الجدول، المعلم، المادة، الاسم، ID
+            # values[6]=ID, values[5]=الاسم, values[4]=المادة, values[3]=المعلم, values[2]=الجدول, values[1]=الرسوم
             self.group_name.delete(0, tk.END)
-            self.group_name.insert(0, values[4])
+            self.group_name.insert(0, values[5])
             self.group_subject.delete(0, tk.END)
-            self.group_subject.insert(0, values[3])
+            self.group_subject.insert(0, values[4])
             self.group_teacher.delete(0, tk.END)
-            self.group_teacher.insert(0, values[2])
+            self.group_teacher.insert(0, values[3])
             self.group_schedule.delete(0, tk.END)
-            self.group_schedule.insert(0, values[1])
+            self.group_schedule.insert(0, values[2])
             self.group_fee.delete(0, tk.END)
-            self.group_fee.insert(0, values[0])
+            self.group_fee.insert(0, values[1])
+    
+    def on_group_tree_click(self, event):
+        """معالجة النقر على جدول المجموعات"""
+        # تحديد العنصر والعمود المنقور
+        region = self.groups_tree.identify("region", event.x, event.y)
+        if region == "cell":
+            column = self.groups_tree.identify_column(event.x)
+            selected = self.groups_tree.selection()
+            
+            if selected and column == "#1":  # عمود العرض (العمود الأول)
+                values = self.groups_tree.item(selected[0])["values"]
+                teacher_name = values[3]  # المعلم
+                self.show_teacher_groups(teacher_name)
+            else:
+                # استدعاء الدالة الأصلية للتحديد
+                self.select_group(event)
+        else:
+            self.select_group(event)
+    
+    def show_teacher_groups(self, teacher_name):
+        """عرض جميع مجموعات المعلم"""
+        # إنشاء نافذة منبثقة
+        dialog = tk.Toplevel(self.root)
+        dialog.title(f"مجموعات المعلم: {teacher_name}")
+        dialog.geometry("1000x600")
+        dialog.configure(bg=self.colors['bg'])
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Header
+        header = tk.Frame(dialog, bg=self.colors['primary'], height=80)
+        header.pack(fill=tk.X)
+        header.pack_propagate(False)
+        
+        tk.Label(header, text=f"{self.icons['student']} مجموعات المعلم: {teacher_name}",
+                bg=self.colors['primary'], fg='white',
+                font=('Segoe UI', 20, 'bold')).pack(pady=20)
+        
+        # Main content
+        content = tk.Frame(dialog, bg=self.colors['bg'])
+        content.pack(fill=tk.BOTH, expand=True, padx=30, pady=20)
+        
+        # جلب مجموعات المعلم
+        query = """
+            SELECT id, name, subject, schedule, fee
+            FROM groups
+            WHERE teacher = ?
+            ORDER BY name
+        """
+        groups = self.db.fetch_all(query, (teacher_name,))
+        
+        if not groups:
+            tk.Label(content, text="لا توجد مجموعات لهذا المعلم",
+                    bg=self.colors['bg'], fg=self.colors['text_secondary'],
+                    font=('Segoe UI', 16)).pack(pady=50)
+        else:
+            # جدول المجموعات
+            tree_outer = tk.Frame(content, bg=self.colors['border'])
+            tree_outer.pack(fill=tk.BOTH, expand=True)
+            
+            tree_frame = tk.Frame(tree_outer, bg='#FFFFFF')
+            tree_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+            
+            columns = ("عدد الطلاب", "الرسوم", "الجدول", "المادة", "المجموعة", "ID")
+            tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=15)
+            
+            # تنسيق الأعمدة
+            tree.column("ID", width=60, anchor='center')
+            tree.column("المجموعة", width=200, anchor='e')
+            tree.column("المادة", width=150, anchor='e')
+            tree.column("الجدول", width=200, anchor='e')
+            tree.column("الرسوم", width=100, anchor='center')
+            tree.column("عدد الطلاب", width=100, anchor='center')
+            
+            for col in columns:
+                tree.heading(col, text=col)
+            
+            # إضافة البيانات
+            for idx, group in enumerate(groups):
+                group_id = group[0]
+                
+                # حساب عدد الطلاب في المجموعة
+                student_count_query = """
+                    SELECT COUNT(*) FROM student_groups WHERE group_id = ?
+                """
+                student_count = self.db.fetch_one(student_count_query, (group_id,))[0]
+                
+                tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
+                values = [
+                    student_count,  # عدد الطلاب
+                    group[4],  # الرسوم
+                    group[3],  # الجدول
+                    group[2],  # المادة
+                    group[1],  # اسم المجموعة
+                    group[0]   # ID
+                ]
+                tree.insert("", tk.END, values=values, tags=(tag,))
+            
+            # Scrollbars
+            vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+            hsb = ttk.Scrollbar(tree_frame, orient="horizontal", command=tree.xview)
+            tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+            
+            tree.grid(row=0, column=0, sticky='nsew')
+            vsb.grid(row=0, column=1, sticky='ns')
+            hsb.grid(row=1, column=0, sticky='ew')
+            
+            tree_frame.grid_rowconfigure(0, weight=1)
+            tree_frame.grid_columnconfigure(0, weight=1)
+        
+        # زر الإغلاق
+        btn_frame = tk.Frame(dialog, bg=self.colors['bg'])
+        btn_frame.pack(pady=20)
+        
+        self.create_modern_button(btn_frame, "إغلاق", dialog.destroy,
+                                  'secondary', self.icons['close']).pack()
+    
+    def refresh_group_teacher_combo(self):
+        """تحديث قائمة المعلمين في dropdown المجموعات"""
+        teachers = self.db.fetch_all("SELECT name FROM teachers ORDER BY name")
+        teacher_names = [teacher[0] for teacher in teachers]
+        self.group_teacher['values'] = teacher_names
+        self.group_teacher.all_values = teacher_names
     
     def clear_group_fields(self):
         """مسح حقول المجموعة"""
@@ -2663,6 +3181,209 @@ $Shortcut.Description = "Student Manager App"
         self.group_teacher.delete(0, tk.END)
         self.group_schedule.delete(0, tk.END)
         self.group_fee.delete(0, tk.END)
+    
+    # ========== وظائف المعلمين ==========
+    
+    def add_teacher(self):
+        """إضافة معلم جديد"""
+        name = self.teacher_name.get().strip()
+        phone = self.teacher_phone.get().strip()
+        email = self.teacher_email.get().strip()
+        specialization = self.teacher_specialization.get().strip()
+        
+        if not name:
+            messagebox.showerror("خطأ", "يرجى إدخال اسم المعلم")
+            return
+        
+        try:
+            self.db.execute_query(
+                "INSERT INTO teachers (name, phone, email, specialization) VALUES (?, ?, ?, ?)",
+                (name, phone, email, specialization)
+            )
+            messagebox.showinfo("نجاح", "تم إضافة المعلم بنجاح!")
+            self.clear_teacher_fields()
+            self.load_teachers()
+        except Exception as e:
+            messagebox.showerror("خطأ", f"فشل إضافة المعلم:\n{str(e)}")
+    
+    def update_teacher(self):
+        """تحديث بيانات معلم"""
+        selected = self.teachers_tree.selection()
+        if not selected:
+            messagebox.showwarning("تحذير", "يرجى اختيار معلم للتحديث")
+            return
+        
+        values = self.teachers_tree.item(selected[0])["values"]
+        teacher_id = values[6]  # ID in last column
+        
+        name = self.teacher_name.get().strip()
+        phone = self.teacher_phone.get().strip()
+        email = self.teacher_email.get().strip()
+        specialization = self.teacher_specialization.get().strip()
+        
+        if not name:
+            messagebox.showerror("خطأ", "يرجى إدخال اسم المعلم")
+            return
+        
+        try:
+            self.db.execute_query(
+                "UPDATE teachers SET name=?, phone=?, email=?, specialization=? WHERE id=?",
+                (name, phone, email, specialization, teacher_id)
+            )
+            messagebox.showinfo("نجاح", "تم تحديث بيانات المعلم بنجاح!")
+            self.clear_teacher_fields()
+            self.load_teachers()
+        except Exception as e:
+            messagebox.showerror("خطأ", f"فشل تحديث المعلم:\n{str(e)}")
+    
+    def delete_teacher(self):
+        """حذف معلم"""
+        selected = self.teachers_tree.selection()
+        if not selected:
+            messagebox.showwarning("تحذير", "يرجى اختيار معلم للحذف")
+            return
+        
+        values = self.teachers_tree.item(selected[0])["values"]
+        teacher_id = values[6]
+        teacher_name = values[5]
+        
+        confirm = messagebox.askyesno("تأكيد الحذف", 
+                                     f"هل أنت متأكد من حذف المعلم '{teacher_name}'؟")
+        if confirm:
+            try:
+                self.db.execute_query("DELETE FROM teachers WHERE id=?", (teacher_id,))
+                messagebox.showinfo("نجاح", "تم حذف المعلم بنجاح!")
+                self.clear_teacher_fields()
+                self.load_teachers()
+            except Exception as e:
+                messagebox.showerror("خطأ", f"فشل حذف المعلم:\n{str(e)}")
+    
+    def load_teachers(self):
+        """تحميل قائمة المعلمين"""
+        for item in self.teachers_tree.get_children():
+            self.teachers_tree.delete(item)
+        
+        teachers = self.db.fetch_all(
+            "SELECT id, name, phone, email, specialization FROM teachers ORDER BY name"
+        )
+        
+        for idx, teacher in enumerate(teachers):
+            teacher_id = teacher[0]
+            teacher_name = teacher[1]
+            
+            # Count groups for this teacher
+            group_count = self.db.fetch_one(
+                "SELECT COUNT(*) FROM groups WHERE teacher = ?", (teacher_name,)
+            )[0]
+            
+            # Count total students across all groups
+            student_count = self.db.fetch_one("""
+                SELECT COUNT(DISTINCT sg.student_id)
+                FROM student_groups sg
+                INNER JOIN groups g ON sg.group_id = g.id
+                WHERE g.teacher = ?
+            """, (teacher_name,))[0]
+            
+            tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
+            # Order: المجموعات، عدد الطلاب، التخصص، البريد، الهاتف، الاسم، ID
+            values = [
+                self.icons['info'],  # Icon for groups
+                student_count,
+                teacher[4],  # specialization
+                teacher[3],  # email
+                teacher[2],  # phone
+                teacher[1],  # name
+                teacher[0]   # id
+            ]
+            self.teachers_tree.insert("", tk.END, values=values, tags=(tag,))
+        
+        # Refresh the teacher dropdown in groups page
+        self.refresh_group_teacher_combo()
+    
+    def select_teacher(self, event):
+        """اختيار معلم من الجدول"""
+        selected = self.teachers_tree.selection()
+        if selected:
+            values = self.teachers_tree.item(selected[0])["values"]
+            # Order: المجموعات، عدد الطلاب، التخصص، البريد، الهاتف، الاسم، ID
+            teacher_name = values[5]
+            
+            self.teacher_name.delete(0, tk.END)
+            self.teacher_name.insert(0, teacher_name)
+            self.teacher_phone.delete(0, tk.END)
+            self.teacher_phone.insert(0, values[4])
+            self.teacher_email.delete(0, tk.END)
+            self.teacher_email.insert(0, values[3])
+            self.teacher_specialization.delete(0, tk.END)
+            self.teacher_specialization.insert(0, values[2])
+            
+            # Load teacher's groups in the display section
+            self.load_teacher_groups_display(teacher_name)
+    
+    def load_teacher_groups_display(self, teacher_name):
+        """تحميل مجموعات المعلم في قسم العرض"""
+        # Clear existing data
+        for item in self.teacher_groups_tree.get_children():
+            self.teacher_groups_tree.delete(item)
+        
+        # Update label
+        self.selected_teacher_label.config(text=f"{self.icons['groups']} مجموعات المعلم: {teacher_name}")
+        
+        # Fetch teacher's groups
+        query = """
+            SELECT id, name, subject, schedule, fee
+            FROM groups
+            WHERE teacher = ?
+            ORDER BY name
+        """
+        groups = self.db.fetch_all(query, (teacher_name,))
+        
+        if not groups:
+            # Show message if no groups
+            self.teacher_groups_tree.insert("", tk.END, values=("", "", "", "لا توجد مجموعات", "", ""))
+        else:
+            for idx, group in enumerate(groups):
+                group_id = group[0]
+                
+                # Count students in this group
+                student_count_query = """
+                    SELECT COUNT(*) FROM student_groups WHERE group_id = ?
+                """
+                student_count = self.db.fetch_one(student_count_query, (group_id,))[0]
+                
+                tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
+                values = [
+                    student_count,  # عدد الطلاب
+                    group[4],  # الرسوم
+                    group[3],  # الجدول
+                    group[2],  # المادة
+                    group[1],  # اسم المجموعة
+                    group[0]   # ID
+                ]
+                self.teacher_groups_tree.insert("", tk.END, values=values, tags=(tag,))
+    
+    def on_teacher_tree_click(self, event):
+        """معالجة النقر على جدول المعلمين"""
+        region = self.teachers_tree.identify("region", event.x, event.y)
+        if region == "cell":
+            column = self.teachers_tree.identify_column(event.x)
+            selected = self.teachers_tree.selection()
+            
+            if selected and column == "#1":  # المجموعات column (first column)
+                values = self.teachers_tree.item(selected[0])["values"]
+                teacher_name = values[5]  # الاسم
+                self.show_teacher_groups(teacher_name)
+            else:
+                self.select_teacher(event)
+        else:
+            self.select_teacher(event)
+    
+    def clear_teacher_fields(self):
+        """مسح حقول المعلم"""
+        self.teacher_name.delete(0, tk.END)
+        self.teacher_phone.delete(0, tk.END)
+        self.teacher_email.delete(0, tk.END)
+        self.teacher_specialization.delete(0, tk.END)
     
     # ========== وظائف التسجيل ==========
     
