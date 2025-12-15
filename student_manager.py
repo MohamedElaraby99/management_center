@@ -2524,8 +2524,8 @@ $Shortcut.Description = "Student Manager App"
             messagebox.showerror("خطأ", "يرجى اختيار طالب للتحديث")
             return
         
-        # ID في المكان الأخير (index 5)
-        student_id = self.students_tree.item(selected[0])["values"][5]
+        # ID في المكان الأخير (index 6)
+        student_id = self.students_tree.item(selected[0])["values"][6]
         name = self.student_name.get().strip()
         
         if not name:
@@ -2554,8 +2554,8 @@ $Shortcut.Description = "Student Manager App"
             messagebox.showerror("خطأ", "يرجى اختيار طالب للحذف")
             return
         
-        # ID في المكان الأخير (index 5)
-        student_id = self.students_tree.item(selected[0])["values"][5]
+        # ID في المكان الأخير (index 6)
+        student_id = self.students_tree.item(selected[0])["values"][6]
         
         if messagebox.askyesno("تأكيد", "هل تريد حذف هذا الطالب؟"):
             try:
@@ -2901,20 +2901,46 @@ $Shortcut.Description = "Student Manager App"
                                   'secondary', self.icons['close']).pack()
     
     def get_student_attendance_in_group(self, student_id, group_id):
-        """حساب إحصائيات حضور الطالب في مجموعة معينة"""
-        # عدد أيام الحضور
-        present_query = """
-            SELECT COUNT(*) FROM attendance
-            WHERE student_id = ? AND group_id = ? AND status = 'حاضر'
-        """
-        present_count = self.db.fetch_one(present_query, (student_id, group_id))[0]
+        """حساب إحصائيات حضور الطالب في مجموعة معينة (بعد آخر دفعة)"""
+        # جلب تاريخ آخر دفعة للطالب في هذه المجموعة
+        last_payment = self.db.fetch_one("""
+            SELECT MAX(payment_date) 
+            FROM payments 
+            WHERE student_id=? AND group_id=?
+        """, (student_id, group_id))
         
-        # عدد أيام الغياب
-        absent_query = """
-            SELECT COUNT(*) FROM attendance
-            WHERE student_id = ? AND group_id = ? AND status IN ('غائب', 'غياب بعذر')
-        """
-        absent_count = self.db.fetch_one(absent_query, (student_id, group_id))[0]
+        last_payment_date = last_payment[0] if last_payment and last_payment[0] else None
+        
+        # عدد أيام الحضور بعد آخر دفعة
+        if last_payment_date:
+            present_query = """
+                SELECT COUNT(*) FROM attendance
+                WHERE student_id = ? AND group_id = ? AND status = 'حاضر'
+                AND attendance_date > ?
+            """
+            present_count = self.db.fetch_one(present_query, (student_id, group_id, last_payment_date))[0]
+            
+            # عدد أيام الغياب بعد آخر دفعة
+            absent_query = """
+                SELECT COUNT(*) FROM attendance
+                WHERE student_id = ? AND group_id = ? AND status IN ('غائب', 'غياب بعذر')
+                AND attendance_date > ?
+            """
+            absent_count = self.db.fetch_one(absent_query, (student_id, group_id, last_payment_date))[0]
+        else:
+            # إذا لم يكن هناك دفعات، احسب كل الحضور
+            present_query = """
+                SELECT COUNT(*) FROM attendance
+                WHERE student_id = ? AND group_id = ? AND status = 'حاضر'
+            """
+            present_count = self.db.fetch_one(present_query, (student_id, group_id))[0]
+            
+            # عدد أيام الغياب
+            absent_query = """
+                SELECT COUNT(*) FROM attendance
+                WHERE student_id = ? AND group_id = ? AND status IN ('غائب', 'غياب بعذر')
+            """
+            absent_count = self.db.fetch_one(absent_query, (student_id, group_id))[0]
         
         # حساب النسبة المئوية
         total = present_count + absent_count
@@ -3686,12 +3712,29 @@ $Shortcut.Description = "Student Manager App"
         )
         milestone_count = int(milestone_setting[0]) if milestone_setting else 4
         
-        # حساب عدد الحضور الكلي للطالب في هذه المجموعة
-        attendance_count = self.db.fetch_one("""
-            SELECT COUNT(*) 
-            FROM attendance 
-            WHERE student_id=? AND group_id=? AND status='حاضر'
+        # جلب تاريخ آخر دفعة للطالب في هذه المجموعة
+        last_payment = self.db.fetch_one("""
+            SELECT MAX(payment_date) 
+            FROM payments 
+            WHERE student_id=? AND group_id=?
         """, (student_id, group_id))
+        
+        last_payment_date = last_payment[0] if last_payment and last_payment[0] else None
+        
+        # حساب عدد الحضور بعد آخر دفعة فقط (أو كل الحضور إذا لم يكن هناك دفعات)
+        if last_payment_date:
+            attendance_count = self.db.fetch_one("""
+                SELECT COUNT(*) 
+                FROM attendance 
+                WHERE student_id=? AND group_id=? AND status='حاضر'
+                AND attendance_date > ?
+            """, (student_id, group_id, last_payment_date))
+        else:
+            attendance_count = self.db.fetch_one("""
+                SELECT COUNT(*) 
+                FROM attendance 
+                WHERE student_id=? AND group_id=? AND status='حاضر'
+            """, (student_id, group_id))
         
         if not attendance_count:
             return
